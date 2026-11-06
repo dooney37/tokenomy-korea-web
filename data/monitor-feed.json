@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "generated_at": null,
+  "last_success_at": null,
+  "timezone": "Asia/Seoul",
+  "schedule": ["08:30", "17:00"],
+  "publisher": "예약 수집기 연결 대기",
+  "run": null,
+  "runs": [],
+  "items": [],
+  "limitations": ["이 파일은 미연결 상태를 명시하는 초기 피드입니다. 실제 자동 조사를 수행한 결과가 아닙니다."]
+}

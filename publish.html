@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#344e41">
+  <title>무료 웹페이지 공개 안내 — 토크노미 코리아</title>
+  <link rel="stylesheet" href="css/publish.css">
+  <script src="js/vendor/fflate.js" defer></script>
+  <script src="js/publish.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">본문으로 이동</a>
+  <header class="publish-header"><a href="index.html" class="brand">◉ rwa<span>radar</span></a><a href="index.html">대시보드로 돌아가기 ↗</a></header>
+  <main id="main">
+    <div class="eyebrow">GITHUB PAGES · FREE PUBLIC WEBSITE</div>
+    <h1>리서치 페이지를,<br>하나의 링크로 공유하세요.</h1>
+    <p class="intro">지금 만든 대시보드를 그대로 공개합니다. 별도 서버나 유료 도메인 없이,<br class="desktop-break"> GitHub의 무료 기본 주소로 자동 조사 결과를 함께 볼 수 있습니다.</p>
+    <section class="download-panel" aria-labelledby="packageTitle">
+      <div><span class="tag">공개용 파일 준비</span><h2 id="packageTitle">웹페이지 공개용 패키지</h2><p>화면·스타일·공개 수집 코드만 포함합니다.<br>이 브라우저의 개인 메모·백업·관측 이력은 포함하지 않습니다.</p></div>
+      <div class="download-action"><button id="downloadWebsite" class="button primary">웹페이지 공개용 파일 받기 ↓</button><p id="downloadStatus" role="status" aria-live="polite">ZIP을 받은 뒤 아래 4단계를 따라 주세요.</p></div>
+    </section>
+    <aside class="notice"><strong>기존 리서치 저장소는 그대로 두세요.</strong><p><code>tokenomy-korea-monitor</code>는 자동 조사 피드를 발행 중입니다. 이번 웹페이지는 <strong>새 공개 저장소</strong>에 올립니다. 기존 피드·예약 설정을 바꾸거나 지우지 않습니다.</p></aside>
+    <section class="steps" aria-label="GitHub Pages 공개 순서">
+      <article class="step"><span class="step-number">01</span><div><h2>새 공개 저장소 만들기</h2><p>GitHub에 로그인한 뒤 새 저장소를 만듭니다. 이름은 예를 들어 <code>tokenomy-korea-web</code>, 공개 범위는 <strong>Public</strong>으로 선택하고 <strong>Create repository</strong>를 누릅니다.</p><a href="https://github.com/new" target="_blank" rel="noopener noreferrer">GitHub 새 저장소 만들기 ↗</a><p class="small">이름은 예시입니다. 기존 저장소와 다른 이름을 사용하세요. 공개 저장소의 소스 코드·조사 계획은 누구나 볼 수 있습니다.</p></div></article>
+      <article class="step"><span class="step-number">02</span><div><h2>압축을 풀고 파일·폴더 업로드</h2><p>받은 ZIP을 먼저 풉니다. 새 저장소의 <strong>uploading an existing file</strong> 또는 <strong>Add file → Upload files</strong>에서 압축 안의 파일·폴더를 올리고 <strong>Commit changes</strong>로 저장합니다.</p><div class="file-tree" aria-label="필수 폴더 구조"><code>index.html　← 첫 화면에 있어야 합니다<br>publish.html<br>css/　js/　data/　automation/<br>PUBLIC-WEBSITE.md　README.md　.nojekyll</code></div><p class="small">ZIP 자체나 ZIP을 감싼 상위 폴더를 올리지 마세요. 업로드 후 첫 화면에 index.html과 위 폴더들이 보이는지 확인하세요. .nojekyll은 숨김 파일이며 누락돼도 이 사이트의 기본 파일은 동작합니다.</p><details><summary>파일들이 폴더 없이 한곳에 올라갔나요?</summary><p>폴더 경로가 사라지면 화면이 깨집니다. 새 저장소에서 각 폴더를 먼저 만들고, 해당 폴더 안에서 파일만 업로드하세요. 예: Add file → Create new file에서 <code>css/README.md</code>를 만들고 저장 → css 폴더 열기 → Upload files로 style.css, monitor.css, publish.css를 올립니다. js, js/vendor, data, automation도 같은 방식으로 원래 경로를 유지합니다. 기존 리서치 저장소의 파일은 수정하지 마세요.</p></details><p class="small"><strong>개인 데이터 백업 JSON, 연락처, 비공개 메모, 비밀번호·토큰은 절대 업로드하지 마세요.</strong></p></div></article>
+      <article class="step"><span class="step-number">03</span><div><h2>Pages에서 무료 공개 켜기</h2><p>새 저장소의 <strong>Settings → Pages</strong>를 엽니다. Build and deployment의 Source는 <strong>Deploy from a branch</strong>, Branch는 <strong>main</strong>, 폴더는 <strong>/(root)</strong>를 선택한 뒤 <strong>Save</strong>를 누릅니다.</p><p class="small">이번에는 GitHub Actions가 아니라 ‘Deploy from a branch’입니다. 수집기용 예약 변수나 별도의 워크플로를 설정할 필요가 없습니다. GitHub Free의 공개 저장소 Pages를 이용하며 서비스의 용량·트래픽·이용약관 제한은 적용됩니다. 유료 도메인은 필요 없습니다.</p></div></article>
+      <article class="step"><span class="step-number">04</span><div><h2>실제로 발급된 주소 확인하고 공유</h2><p>배포가 끝나면 Settings → Pages에 표시되는 <strong>Visit site</strong> 또는 <strong>Your site is live at…</strong>의 주소를 엽니다. 첫 배포는 몇 분 걸릴 수 있습니다. 주소를 직접 추측하지 말고 실제 표시된 링크를 복사해 공유하세요.</p><ul><li>대시보드와 자동 후보가 보이는지 확인합니다.</li><li>자동 조사 센터에서 공개 피드 수신 시각을 확인합니다.</li><li>휴대전화에서도 같은 링크가 열리는지 확인합니다.</li></ul><p class="small">아직 이 안내만으로 사이트가 배포되거나 공유 주소가 생성되는 것은 아닙니다. 404라면 배포 완료·main/root 설정·첫 화면의 index.html 위치를 먼저 확인하세요.</p></div></article>
+    </section>
+    <section class="sharing" aria-labelledby="sharingTitle"><div class="eyebrow">PUBLIC RESEARCH, PERSONAL NOTES</div><h2 id="sharingTitle">공유되는 정보와 남겨 두는 정보</h2><div class="sharing-grid"><article><h3>함께 보는 자동 조사</h3><p>방문자는 같은 공개 조사 피드를 읽습니다. 수집 결과는 페이지를 열 때, 열린 동안 5분마다 다시 조회됩니다. 수집 서버는 기존 GitHub Actions를 그대로 이용합니다.</p></article><article><h3>각자 보관하는 개인 기록</h3><p>직접 등록한 행사·연사·섭외 메모는 각자의 브라우저에 저장됩니다. 공동 편집·계정 동기화·비밀번호 보호 기능은 없습니다. 민감한 정보는 입력하지 않는 것을 권장합니다.</p></article></div><div class="notice"><strong>미리보기의 개인 기록은 새 주소로 자동 이동하지 않습니다.</strong><p>지금 대시보드의 ‘내 데이터 백업’으로 JSON을 보관한 뒤, 공개된 새 주소에서 ‘백업 불러오기’를 이용하세요. 백업 파일은 GitHub에 올리지 마세요. 기존 미리보기 기록은 지우지 않습니다.</p></div></section>
+    <section class="after"><h2>공개한 이후에는</h2><p>조사 피드의 새 결과는 별도 웹페이지 재배포 없이 조회됩니다. 단, 화면·기능 코드를 수정했다면 새 공개용 패키지를 받아 <strong>웹페이지용 저장소</strong> 파일을 갱신해야 합니다. 공개 페이지에서 파일 받기를 누르면 현재 공개된 버전이 내려받아집니다. 최신 수정본은 편집기 미리보기에서 받으세요.</p><a href="index.html" class="button secondary">대시보드로 돌아가기 →</a></section>
+  </main>
+  <footer>토크노미 코리아 연사 섭외 모니터링 · RESEARCH, WITH EVIDENCE.</footer>
+<script src="https://www.genspark.ai/sandbox_inspect.js"></script></body>
+</html>
