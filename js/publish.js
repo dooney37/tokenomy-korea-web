@@ -2,12 +2,12 @@
 // Explicit source allowlist only. Never reads browser records or a repository snapshot.
 window.RadarWebsitePackage=(()=>{
   const paths=Object.freeze([
-    'index.html','publish.html','css/style.css','css/monitor.css','css/publish.css',
+    'index.html','publish.html','css/style.css','css/monitor.css','css/publish.css','css/manual-research.css',
     'js/app.js','js/monitor.js','js/event-bridge.js','js/event-integration.js',
-    'js/recovery-ui.js','js/publish.js','js/vendor/fflate.js','js/vendor/fflate.LICENSE.txt',
+    'js/recovery-ui.js','js/manual-research.js','js/publish.js','js/vendor/fflate.js','js/vendor/fflate.LICENSE.txt',
     'data/monitor-plan.json','data/monitor-feed.json',
     'automation/collector.py','automation/test_collector.py','automation/rwa-monitor.yml',
-    'automation/SETUP.md','automation/KEYWORDS.md','automation/UPDATE.md','PUBLIC-WEBSITE.md'
+    'automation/SETUP.md','automation/KEYWORDS.md','automation/UPDATE.md','automation/MANUAL.md','PUBLIC-WEBSITE.md'
   ]);
   async function build(){
     if(!window.fflate)throw Error('ZIP 기능을 읽지 못했습니다. 새로고침 후 다시 시도해 주세요.');
