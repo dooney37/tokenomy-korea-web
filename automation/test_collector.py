@@ -202,7 +202,7 @@ class RecoveryTests(unittest.TestCase):
             feed=json.loads((root/'public-feed/monitor-feed.json').read_text())
             self.assertTrue(any(x['id']=='keep-id' for x in state['items']))
             self.assertEqual(state['recovery_cursor'],1)
-            self.assertEqual(feed['collector_version'],'2.0')
+            self.assertEqual(feed['collector_version'],'3.0')
             self.assertEqual(feed['recovery'][0]['status'],'found')
             self.assertEqual(feed['run']['status'],'partial')
 
@@ -273,6 +273,82 @@ class PublicNewsTests(unittest.TestCase):
         self.assertEqual(len(items[0]['alternate_links']),1)
         self.assertTrue(items[0]['review_required'])
         self.assertTrue(any(x['method']=='news_origin' and x['status']=='failed' for x in checks))
+
+class ManualResearchTests(unittest.TestCase):
+    def target(self, html='', mime='text/html'):
+        class Fake:
+            def get(self,url): return html,mime,url
+        with patch.object(c, 'public_url', side_effect=lambda u:u):
+            return c.collect_target('https://example.com/event',Fake(),PLAN,TIME)
+
+    def test_target_structured_people_always_review_required(self):
+        event=CollectorTests().event(performer=[{'@type':'Person','name':'Test Person','worksFor':{'name':'Test Bank'},'jobTitle':'Director'}])
+        items,check=self.target('<script type="application/ld+json">'+json.dumps(event)+'</script>')
+        self.assertEqual(check['status'],'ok')
+        self.assertEqual(items[0]['speakers'][0]['company'],'Test Bank')
+        self.assertTrue(items[0]['manual_request'])
+        self.assertTrue(items[0]['review_required'])
+        self.assertEqual(items[0]['event_date'],'2027-04-10')
+
+    def test_target_plain_text_does_not_invent_event_or_people(self):
+        items,check=self.target('<title>Program</title><p>2027 Test Person Test Bank</p>')
+        self.assertEqual(check['status'],'ok')
+        self.assertEqual(items[0]['event_date'],'')
+        self.assertEqual(items[0]['speakers'],[])
+        self.assertIn('Test Bank',items[0]['summary'])
+
+    def test_target_pdf_is_explicit_failure(self):
+        items,check=self.target('PDF','application/pdf')
+        self.assertEqual(items,[])
+        self.assertEqual(check['status'],'failed')
+
+    def test_private_target_blocked_before_get(self):
+        class Never:
+            def get(self,url): raise AssertionError('Must not fetch')
+        with patch.object(c.socket,'getaddrinfo',return_value=[(2,1,6,'',('127.0.0.1',443))]):
+            items,check=c.collect_target('https://localhost/event',Never(),PLAN,TIME)
+        self.assertEqual(items,[])
+        self.assertEqual(check['status'],'failed')
+        self.assertEqual(check['url'],'')
+
+    def test_target_query_and_credentials_never_recorded(self):
+        for url in ['https://example.com/?token=secret','https://user:secret@example.com/']:
+            with patch.object(c,'public_url',side_effect=c.public_url):
+                items,check=c.collect_target(url,None,PLAN,TIME)
+            self.assertEqual(items,[])
+            self.assertEqual(check['url'],'')
+            self.assertNotIn('secret',check['error'])
+
+    def test_target_robots_failure_retains_failure(self):
+        class Blocked:
+            def get(self,url): raise ValueError('robots.txt disallows this URL')
+        with patch.object(c,'public_url',side_effect=lambda u:u):
+            items,check=c.collect_target('https://example.com/',Blocked(),PLAN,TIME)
+        self.assertEqual(items,[])
+        self.assertIn('robots',check['error'])
+
+    def test_target_redirect_requires_final_url(self):
+        with self.assertRaisesRegex(ValueError,'final public'):
+            c.TargetRedirect().redirect_request(None,None,302,'',{},'https://example.com/final')
+
+    def test_target_run_preserves_previous_data_cursor_and_full_success(self):
+        import tempfile
+        class Plain:
+            def get(self,url): return '<title>New page</title><p>2027</p>','text/html',url
+        previous={'items':[{'id':'keep','revision':'old','title':'Keep','url':'https://example.com/old','changed_at':TIME}], 'runs':[], 'page_hashes':{'keep':'hash'}, 'last_success_at':TIME,'recovery_cursor':9,'custom':'preserve'}
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            with patch.object(c,'ROOT',root),patch.object(c,'public_url',side_effect=lambda u:u):
+                c.run_target('https://example.com/event',previous,Plain(),PLAN,TIME,root/'.monitor-state/state.json')
+            state=json.loads((root/'.monitor-state/state.json').read_text())
+            feed=json.loads((root/'public-feed/monitor-feed.json').read_text())
+            self.assertEqual(state['custom'],'preserve')
+            self.assertEqual(state['recovery_cursor'],9)
+            self.assertEqual(state['last_success_at'],TIME)
+            self.assertEqual(state['page_hashes'],{'keep':'hash'})
+            self.assertTrue(any(x['id']=='keep' for x in state['items']))
+            self.assertEqual(feed['run']['mode'],'target_url')
+            self.assertEqual(feed['last_success_at'],TIME)
 
 if __name__ == '__main__':
     unittest.main()

@@ -47,6 +47,13 @@ class SafeRedirect(request.HTTPRedirectHandler):
         public_url(newurl)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
+class TargetRedirect(SafeRedirect):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # The redirected path may have different robots rules. Ask for the final URL
+        # instead of fetching it before checking those rules.
+        raise ValueError('Target redirected: submit the final public browser URL directly')
+
+
 class Fetcher:
     def __init__(self, config):
         self.config = config
@@ -248,7 +255,9 @@ def structured_item(event, source, page_url, plan, timestamp):
         if isinstance(person_types, str):
             person_types = [person_types]
         if isinstance(person, dict) and isinstance(person.get('name'), str) and any(str(t).split('/')[-1] == 'Person' for t in person_types):
-            aff = person.get('affiliation', {})
+            aff = person.get('affiliation') or person.get('worksFor', {})
+            if isinstance(aff, list):
+                aff = aff[0] if aff else {}
             item['speakers'].append({'name': str(person['name'])[:120], 'company': str(aff.get('name', ''))[:160] if isinstance(aff, dict) else '', 'role': str(person.get('jobTitle', ''))[:120], 'url': page_url})
     if item['speakers']:
         item['kind'] = '스피커 공개'
@@ -647,6 +656,72 @@ def atomic_write(path, value):
     temp.replace(path)
 
 
+def manual_url(value):
+    """Reject credentials, queries and private/opaque addresses before any target request."""
+    if not isinstance(value, str) or len(value) > 2000:
+        raise ValueError('Public URL must be at most 2000 characters')
+    p = parse.urlsplit(value.strip())
+    if p.query or p.fragment:
+        raise ValueError('Remove query/fragment; never submit signed or private URLs')
+    return public_url(value.strip())
+
+
+def collect_target(url, fetcher, plan, timestamp):
+    """Owner-dispatched single HTML page. No automatic enrollment or inferred people."""
+    items = []
+    safe_target = ''
+    try:
+        url = manual_url(url)
+        safe_target = url
+        html, mime, final_url = fetcher.get(url)
+        manual_url(final_url)
+        if mime not in ('text/html', 'application/xhtml+xml'):
+            raise ValueError('HTML only; PDF/image/JavaScript speaker lists need manual review')
+        page = EventHTML(); page.feed(html)
+        source = {'id':'manual-'+digest(url), 'name':normalized(page.title)[:160] or '지정 URL 조사', 'aliases':[], 'priority':'A', 'region':'현행 개최지 미확인'}
+        for event in list(walk_events(page.json_scripts))[:20]:
+            item = structured_item(event, source, final_url, plan, timestamp)
+            if item:
+                item['id'] = 'manual-'+digest(final_url+'|'+item['title'])
+                item['requested_url'] = url
+                item['manual_request'] = True
+                item['review_required'] = True
+                item['review_reasons'].append('사용자 지정 URL: 공식성·현행 연도·연사 참석·소속을 직접 검수해야 함')
+                item['evidence'] = '사용자 지정 공개 HTML의 Event/performer 구조화 정보. 출처 공식성·참석 확정 아님.'
+                items.append(item)
+        if not items:
+            items.append({'id':'manual-page-'+digest(final_url), 'title':source['name'], 'url':final_url, 'source_url':final_url,
+                          'requested_url':url, 'manual_request':True, 'watch_id':source['id'], 'watch_name':source['name'], 'priority':'A',
+                          'region':'현행 개최지 미확인', 'event_date':'', 'end_date':'', 'source_kind':'official_page_change',
+                          'kind':'지정 URL 조사', 'review_required':True, 'review_reasons':['구조화된 Event/performer 없음: 본문을 직접 검수하고 행사·연사를 수동 입력해야 함'],
+                          'scope':'unknown', 'summary':normalized(' '.join(page.text))[:1800], 'speakers':[], 'observed_at':timestamp,
+                          'evidence':'지정 URL의 HTML 본문 발췌. 날짜·연사·공식성을 추정하여 채우지 않음.'})
+        check = {'id':'target-'+digest(url), 'name':'지정 URL 조사', 'url':url, 'status':'ok', 'method':'manual_url', 'checked_at':timestamp, 'count':len(items)}
+    except Exception as exc:
+        check = {'id':'target-'+digest(url), 'name':'지정 URL 조사', 'url':safe_target, 'status':'failed', 'method':'manual_url', 'checked_at':timestamp, 'error':str(exc)[:240]}
+    return items, check
+
+
+def run_target(url, previous, fetcher, plan, timestamp, private):
+    found, check = collect_target(url, fetcher, plan, timestamp)
+    items, changes = merge_items(previous['items'], found, timestamp)
+    ok = check['status'] == 'ok'
+    record = {'id':digest(timestamp), 'mode':'target_url', 'target_url':check['url'], 'started_at':timestamp, 'finished_at':now(),
+              'status':'success' if ok else 'failed', 'checked':1, 'succeeded':int(ok), 'failed':int(not ok),
+              'new':sum(c['change']=='new' for c in changes), 'updated':sum(c['change']=='updated' for c in changes), 'checks':[check]}
+    runs = [record]+previous.get('runs', [])[:27]
+    # Do not advance the last full-monitoring success timestamp for a one-page request.
+    feed = {'version':1, 'collector_version':'3.0', 'generated_at':record['finished_at'], 'last_success_at':previous.get('last_success_at'),
+            'timezone':plan['timezone'], 'schedule':plan['schedule'], 'scope':plan['scope'], 'publisher':'RWA Radar owner-requested URL research',
+            'run':record, 'runs':runs, 'items':items[:plan['collection']['max_items']],
+            'limitations':['지정 URL 한 페이지만 조사한 결과이며 전체 모니터링의 복구·성공을 의미하지 않습니다.', 'HTML/JSON-LD Event와 performer만 추출합니다. 검수 후 선택 등록해야 합니다.']}
+    atomic_write(ROOT/'public-feed/monitor-feed.json', feed)
+    atomic_write(ROOT/'public-feed/monitor-plan.json', plan)
+    atomic_write(private, {**previous, 'items':items, 'runs':runs})
+    (ROOT/'public-feed/index.html').write_text('<!doctype html><meta charset="utf-8"><title>RWA Radar public feed</title><a href="monitor-feed.json">Public research feed</a>', encoding='utf-8')
+    print(json.dumps({'mode':'target_url', 'status':record['status'], 'new':record['new'], 'updated':record['updated']}))
+
+
 def run():
     plan = json.loads((ROOT/'data/monitor-plan.json').read_text(encoding='utf-8'))
     private = ROOT/'.monitor-state/state.json'
@@ -658,6 +733,10 @@ def run():
         previous = {'items': [], 'runs': [], 'page_hashes': {}}
     timestamp = now()
     fetcher = Fetcher(plan['collection'])
+    target_url = os.environ.get('RADAR_TARGET_URL', '').strip()
+    if target_url:
+        fetcher.opener = request.build_opener(TargetRedirect())
+        return run_target(target_url, previous, fetcher, plan, timestamp, private)
     incoming, checks = [], []
     tasks = [(g['query'], g['language'], g['name'], None) for g in plan['keyword_groups']]
     for source in plan['watchlist']:
@@ -725,7 +804,7 @@ def run():
                   'new': sum(c['change']=='new' for c in changes), 'updated': sum(c['change']=='updated' for c in changes), 'checks': checks}
     runs = [run_record] + previous.get('runs', [])[:27]
     last_success = run_record['finished_at'] if status == 'success' else previous.get('last_success_at')
-    feed = {'version': 1, 'collector_version':'2.0', 'recovery':recovery_records, 'public_news':news_records, 'global_news_search':'Google 뉴스 RSS 실패는 보존. 별도 공개 뉴스 색인 및 알려진 출처 내부의 대체 탐색만 수행', 'generated_at': run_record['finished_at'], 'last_success_at': last_success,
+    feed = {'version': 1, 'collector_version':'3.0', 'recovery':recovery_records, 'public_news':news_records, 'global_news_search':'Google 뉴스 RSS 실패는 보존. 별도 공개 뉴스 색인 및 알려진 출처 내부의 대체 탐색만 수행', 'generated_at': run_record['finished_at'], 'last_success_at': last_success,
             'timezone': plan['timezone'], 'schedule': plan['schedule'], 'scope': plan['scope'],
             'publisher': 'RWA Radar scheduled collector', 'run': run_record, 'runs': runs,
             'items': items[:plan['collection']['max_items']],
@@ -733,7 +812,7 @@ def run():
             'limitations': ['RSS는 후보 탐색이며 공식 원문 검수가 필요합니다.', 'HTML/JSON-LD만 수집합니다. JS 렌더링·이미지·PDF 연사 명단은 사람이 확인해야 합니다.', '예약 실행은 GitHub 서비스 상황에 따라 지연·누락될 수 있습니다.']}
     atomic_write(ROOT/'public-feed/monitor-feed.json', feed)
     atomic_write(ROOT/'public-feed/monitor-plan.json', plan)
-    atomic_write(private, {'items': items, 'runs': runs, 'page_hashes': hashes, 'last_success_at': last_success, 'recovery_cursor':cursor})
+    atomic_write(private, {**previous, 'items': items, 'runs': runs, 'page_hashes': hashes, 'last_success_at': last_success, 'recovery_cursor':cursor})
     (ROOT/'public-feed/index.html').write_text('<!doctype html><meta charset="utf-8"><title>RWA Radar public research feed</title><h1>RWA Radar 공개 리서치 피드</h1><p>개인 섭외 메모는 포함하지 않습니다. 자동 발견은 행사 확정을 뜻하지 않습니다.</p><a href="monitor-feed.json">monitor-feed.json</a>', encoding='utf-8')
     print(json.dumps({'status': status, 'checks': len(checks), 'failed': len(checks)-ok, 'new': run_record['new'], 'updated': run_record['updated']}, ensure_ascii=False))
 
